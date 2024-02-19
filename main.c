@@ -14,66 +14,67 @@ LRESULT MainWindowCallBack(
 
 	switch (Message)
 	{
-		case WM_SIZE:
-		{
-			OutputDebugString(L"WM_SIZE\n");
-		} break;
+	case WM_SIZE:
+	{
+		OutputDebugString(L"WM_SIZE\n");
+	} break;
 
-		case WM_DESTROY:
-		{
-			OutputDebugString(L"WM_DESTROY\n");
-		} break;
-		
-		case WM_CLOSE:
-		{
-			OutputDebugString(L"WM_CLOSE\n");
-		} break;
+	case WM_DESTROY:
+	{
+		OutputDebugString(L"WM_DESTROY\n");
+	} break;
 
-		case WM_ACTIVATEAPP:
-		{
-			OutputDebugString(L"WM_ACTIVATEAPP\n");
-		} break;
-		
-		case WM_PAINT:
-		{
-			OutputDebugString(L"PAINT\n");
-			PAINTSTRUCT Paint;
-			HDC DeviceContext = BeginPaint(Window, &Paint);
-			
-			int X = Paint.rcPaint.left;
-			int Y = Paint.rcPaint.top;
-			int Heigth = Paint.rcPaint.bottom - Paint.rcPaint.top;
-			int Width = Paint.rcPaint.right - Paint.rcPaint.left;
+	case WM_CLOSE:
+	{
+		OutputDebugString(L"WM_CLOSE\n");
+	} break;
 
-			PatBlt(
-				DeviceContext,
-				X,
-				Y,
-				Width,
-				Heigth,
-				WHITENESS
-			);
-			EndPaint(Window, &Paint);
+	case WM_ACTIVATEAPP:
+	{
+		OutputDebugString(L"WM_ACTIVATEAPP\n");
+	} break;
 
-		} break;
+	case WM_PAINT:
+	{
+		OutputDebugString(L"PAINT\n");
+		PAINTSTRUCT Paint;
+		HDC DeviceContext = BeginPaint(Window, &Paint);
 
-		default:
-		{
-			result = DefWindowProc(
-				Window, 
-				Message, 
-				WParam, 
-				LParam
-			);
-		} break;
+		int X = Paint.rcPaint.left;
+		int Y = Paint.rcPaint.top;
+		int Heigth = Paint.rcPaint.bottom - Paint.rcPaint.top;
+		int Width = Paint.rcPaint.right - Paint.rcPaint.left;
+
+		PatBlt(
+			DeviceContext,
+			X,
+			Y,
+			Width,
+			Heigth,
+			WHITENESS
+		);
+		EndPaint(Window, &Paint);
+
+	} break;
+
+	default:
+	{
+		result = DefWindowProc(
+			Window,
+			Message,
+			WParam,
+			LParam
+		);
+	} break;
 	}
+	
 
 	return result;
 }
 
 
 int WINAPI wWinMain(
-	HINSTANCE hInstance,
+        HINSTANCE hInstance,
 	HINSTANCE hPrevInstance,
 	LPWSTR lpCmdLine,
 	int nShowCmd
@@ -85,7 +86,7 @@ int WINAPI wWinMain(
 	WindowClass.lpfnWndProc = MainWindowCallBack;
 	WindowClass.hInstance = hInstance;
 	WindowClass.lpszClassName = L"SeyranClass";
-	
+
 	if (RegisterClass(&WindowClass))
 	{
 		HWND WindowHandler = CreateWindowEx(
@@ -113,13 +114,13 @@ int WINAPI wWinMain(
 					TranslateMessage(&Message);
 					DispatchMessage(&Message);
 				}
-				else 
+				else
 				{
 					break;
 				}
 			}
 		}
 	}
-	
+
 	return 0;
 }
