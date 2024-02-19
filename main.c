@@ -74,7 +74,7 @@ LRESULT MainWindowCallBack(
 
 
 int WINAPI wWinMain(
-        HINSTANCE hInstance,
+	HINSTANCE hInstance,
 	HINSTANCE hPrevInstance,
 	LPWSTR lpCmdLine,
 	int nShowCmd
