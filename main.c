@@ -1,6 +1,72 @@
 #include <windows.h>
+#include <stdbool.h>
 
-// #pragma comment(lib, "user32.lib")
+
+#define in	   static
+#define global static
+#define local  static
+
+
+global bool Running;
+
+global BITMAPINFO BitmapInfo;
+global void* BitmapMemory;
+global HBITMAP BitmapHandle;
+global HDC BitmapDeviceContext;
+
+
+in void 
+Win32ResizeDIBSection(int width, int height)
+{
+	if (BitmapHandle)
+	{
+		DeleteObject(BitmapHandle);
+	}
+	if (!BitmapDeviceContext)
+	{
+		BitmapDeviceContext = CreateCompatibleDC(0);
+	}
+	BITMAPINFOHEADER _bmiHeader = {
+		.biSize			= sizeof(BitmapInfo.bmiHeader),
+		.biWidth		= width,
+		.biHeight		= height,
+		.biPlanes		= 1,
+		.biBitCount		= 32,
+		.biCompression	= BI_RGB
+	};
+	BitmapInfo.bmiHeader = _bmiHeader;
+
+	BitmapHandle = CreateDIBSection(
+		BitmapDeviceContext,
+		&BitmapInfo,
+		DIB_RGB_COLORS,
+		&BitmapMemory,
+		0,
+		0
+	);
+	ReleaseDC(0, BitmapDeviceContext);
+}
+
+
+in void 
+Win32UpdateWindow(HDC DeviceContext, int x, int y, int width, int height)
+{
+	StretchDIBits(
+		DeviceContext,
+		x,
+		y,
+		width,
+		height,
+		x,
+		y,
+		width,
+		height,
+		BitmapMemory,
+		&BitmapInfo,
+		DIB_RGB_COLORS,
+		SRCCOPY
+	);
+}
 
 
 LRESULT MainWindowCallBack(
@@ -16,17 +82,24 @@ LRESULT MainWindowCallBack(
 	{
 	case WM_SIZE:
 	{
-		OutputDebugString(L"WM_SIZE\n");
+		RECT ClientRect;
+		if (GetClientRect(Window, &ClientRect))
+		{
+			int height = ClientRect.bottom - ClientRect.top;
+			int width = ClientRect.right - ClientRect.left;
+			
+			Win32ResizeDIBSection(width, height);
+		}
 	} break;
 
 	case WM_DESTROY:
 	{
-		OutputDebugString(L"WM_DESTROY\n");
+		Running = false;
 	} break;
 
 	case WM_CLOSE:
 	{
-		OutputDebugString(L"WM_CLOSE\n");
+		Running = false;
 	} break;
 
 	case WM_ACTIVATEAPP:
@@ -36,25 +109,21 @@ LRESULT MainWindowCallBack(
 
 	case WM_PAINT:
 	{
-		OutputDebugString(L"PAINT\n");
 		PAINTSTRUCT Paint;
 		HDC DeviceContext = BeginPaint(Window, &Paint);
 
 		int X = Paint.rcPaint.left;
 		int Y = Paint.rcPaint.top;
-		int Heigth = Paint.rcPaint.bottom - Paint.rcPaint.top;
-		int Width = Paint.rcPaint.right - Paint.rcPaint.left;
+		int height = Paint.rcPaint.bottom - Paint.rcPaint.top;
+		int width = Paint.rcPaint.right - Paint.rcPaint.left;
 
-		PatBlt(
-			DeviceContext,
-			X,
+		Win32UpdateWindow(
+			DeviceContext, 
+			X, 
 			Y,
-			Width,
-			Heigth,
-			WHITENESS
+			width, 
+			height
 		);
-		EndPaint(Window, &Paint);
-
 	} break;
 
 	default:
@@ -105,14 +174,25 @@ int WINAPI wWinMain(
 		);
 		if (WindowHandler)
 		{
+			Running = true;
 			MSG Message;
-			while (1)
+
+			while (Running)
 			{
 				BOOL MessageResult = GetMessage(&Message, 0, 0, 0);
 				if (MessageResult > 0)
 				{
 					TranslateMessage(&Message);
 					DispatchMessage(&Message);
+
+					/*
+					MainWindowCallBack(
+						Message.hwnd,
+						Message.message,
+						Message.wParam,
+						Message.lParam
+					);
+					*/
 				}
 				else
 				{
