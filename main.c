@@ -8,31 +8,63 @@
 #define local  static
 
 
-typedef uint8_t uint8;
+typedef uint8_t	 uint8;
 typedef uint16_t uint16;
 typedef uint32_t uint32;
 typedef uint64_t uint64;
 
 
+typedef struct
+tagWindowSize
+{
+	int Width;
+	int Height;
+
+} WindowSize;
+
+
+typedef struct
+tagWin32OffScreenBuffer
+{
+	BITMAPINFO BitmapInfo;
+	void* BitmapMemory;
+
+	WindowSize windowSize;
+
+} Win32OffScreenBuffer;
+
+
 global bool Running;
+global Win32OffScreenBuffer GlobalBackBuffer;
 
-global BITMAPINFO BitmapInfo;
-global void* BitmapMemory;
 
-global int BitmapWidth;
-global int BitmapHeight;
+in WindowSize
+Win32GetWindowSize(HWND Window)
+{
+	WindowSize windowSize = {};
+	RECT ClientRect;
+
+	if (GetClientRect(Window, &ClientRect))
+	{
+		OutputDebugString(L"GOOD");
+		windowSize.Width = ClientRect.right - ClientRect.left; 
+		windowSize.Height = ClientRect.bottom - ClientRect.top;
+	}
+	
+	return windowSize;
+}
 
 
 in void
-RenderGradient(int XOfSet, int YOfSet)
+RenderGradient(Win32OffScreenBuffer Buffer, int XOfSet, int YOfSet)
 {
-	int Pitch = BitmapWidth * 4;
-	uint8* Row = (uint8*)BitmapMemory;
+	int Pitch = Buffer.windowSize.Width * 4;
+	uint8* Row = (uint8*)Buffer.BitmapMemory;
 
-	for (int Y = 0; Y < BitmapHeight; Y++)
+	for (int Y = 0; Y < Buffer.windowSize.Height; Y++)
 	{
 		uint32* Pixel = (uint32*)Row;
-		for (int X = 0; X < BitmapWidth; X++)
+		for (int X = 0; X < Buffer.windowSize.Width; X++)
 		{
 			uint8 Green = (X + XOfSet);
 			uint8 Blue  = (Y + YOfSet);
@@ -44,57 +76,58 @@ RenderGradient(int XOfSet, int YOfSet)
 }
 
 
-in void 
-Win32ResizeDIBSection(int width, int height)
+in Win32OffScreenBuffer*
+Win32ResizeDIBSection(Win32OffScreenBuffer* Buffer, WindowSize windowSize)
 {
-	BitmapWidth = width;
-	BitmapHeight = height;
-
-	if (BitmapMemory)
+	if (Buffer->BitmapMemory)
 	{
 		VirtualFree(
-			BitmapMemory, 
+			Buffer->BitmapMemory, 
 			0, 
 			MEM_RELEASE
 		);
 	}
+	Buffer->windowSize = windowSize;
+
 	BITMAPINFOHEADER _bmiHeader = {
-		.biSize			= sizeof(BitmapInfo.bmiHeader),
-		.biWidth		= BitmapWidth,
-		.biHeight		= -BitmapHeight,
+		.biSize			= sizeof(Buffer->BitmapInfo.bmiHeader),
+		.biWidth		= windowSize.Width,
+		.biHeight		= -windowSize.Height,
 		.biPlanes		= 1,
 		.biBitCount		= 32,
 		.biCompression	= BI_RGB
 	};
-	BitmapInfo.bmiHeader = _bmiHeader;
-
-	BitmapMemory = VirtualAlloc(
+	Buffer->BitmapInfo.bmiHeader = _bmiHeader;
+	Buffer->BitmapMemory = VirtualAlloc(
 		0, 
-		((BitmapWidth * BitmapHeight) * 4),
+		((windowSize.Width * windowSize.Height) * 4),
 		MEM_COMMIT, 
 		PAGE_READWRITE
 	);
+
+	return Buffer;
 }
 
 
 in void 
-Win32UpdateWindow(HDC DeviceContext, RECT* WindowRect)
+Win32DisplayBufferInWindow(
+	Win32OffScreenBuffer Buffer,
+	HDC DeviceContext,
+	WindowSize windowSize
+)
 {
-	int WindowWidth = WindowRect->right - WindowRect->left;
-	int WindowHeight = WindowRect->bottom - WindowRect->top;
-	
 	StretchDIBits(
 		DeviceContext,
 		0,
 		0,
-		BitmapWidth,
-		BitmapHeight,
+		windowSize.Width,
+		windowSize.Height,
 		0,
 		0,
-		WindowWidth,
-		WindowHeight,
-		BitmapMemory,
-		&BitmapInfo,
+		Buffer.windowSize.Width,
+		Buffer.windowSize.Height,
+		Buffer.BitmapMemory,
+		&Buffer.BitmapInfo,
 		DIB_RGB_COLORS,
 		SRCCOPY
 	);
@@ -114,14 +147,7 @@ LRESULT MainWindowCallBack(
 	{
 	case WM_SIZE:
 	{
-		RECT ClientRect;
-		if (GetClientRect(Window, &ClientRect))
-		{
-			int height = ClientRect.bottom - ClientRect.top;
-			int width = ClientRect.right - ClientRect.left;
-			
-			Win32ResizeDIBSection(width, height);
-		}
+		
 	} break;
 
 	case WM_DESTROY:
@@ -143,16 +169,12 @@ LRESULT MainWindowCallBack(
 	{
 		PAINTSTRUCT Paint;
 		HDC DeviceContext = BeginPaint(Window, &Paint);
-
-		RECT ClientRect;
-		GetClientRect(Window, &ClientRect);
-
-		Win32UpdateWindow(
+		Win32DisplayBufferInWindow(
+			GlobalBackBuffer,
 			DeviceContext, 
-			&ClientRect
+			Win32GetWindowSize(Window)
 		);
 		EndPaint(Window, &Paint);
-
 	} break;
 
 	default:
@@ -170,16 +192,22 @@ LRESULT MainWindowCallBack(
 }
 
 
-int WINAPI wWinMain(
+int __stdcall wWinMain(
 	HINSTANCE hInstance,
 	HINSTANCE hPrevInstance,
 	LPWSTR lpCmdLine,
 	int nShowCmd
 )
 {
+	WindowSize windowSize = {
+		1280,
+		720
+	};
+	Win32ResizeDIBSection(&GlobalBackBuffer, windowSize);
+
 	WNDCLASS WindowClass = {};
 
-	WindowClass.style = CS_OWNDC | CS_HREDRAW | CS_VREDRAW;
+	WindowClass.style = CS_HREDRAW | CS_VREDRAW;
 	WindowClass.lpfnWndProc = MainWindowCallBack;
 	WindowClass.hInstance = hInstance;
 	WindowClass.lpszClassName = L"SeyranClass";
@@ -200,17 +228,16 @@ int WINAPI wWinMain(
 			hInstance,
 			0
 		);
-
 		if (Window)
 		{
 			Running = true;
-			MSG Message;
 
 			uint8 XOfSet = 0;
 			uint8 YOfSet = 0;
 
 			while (Running)
 			{
+				MSG Message;
 				while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
 				{
 					if (Message.message == WM_QUIT)
@@ -221,15 +248,13 @@ int WINAPI wWinMain(
 					DispatchMessage(&Message);
 				}
 				
-				RECT ClientRect;
-				GetClientRect(Window, &ClientRect);
-
 				HDC dc = GetDC(Window);
-				Win32UpdateWindow(
+				Win32DisplayBufferInWindow(
+					GlobalBackBuffer,
 					dc,
-					&ClientRect
+					Win32GetWindowSize(Window)
 				);
-				RenderGradient(XOfSet++, YOfSet);
+				RenderGradient(GlobalBackBuffer, XOfSet++, YOfSet);
 				ReleaseDC(Window, dc);
 			}
 		}
