@@ -46,7 +46,6 @@ Win32GetWindowSize(HWND Window)
 
 	if (GetClientRect(Window, &ClientRect))
 	{
-		OutputDebugString(L"GOOD");
 		windowSize.Width = ClientRect.right - ClientRect.left; 
 		windowSize.Height = ClientRect.bottom - ClientRect.top;
 	}
