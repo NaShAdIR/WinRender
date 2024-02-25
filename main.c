@@ -1,11 +1,15 @@
+#ifndef UNICODE
+#define UNICODE
+#endif
+
 #include <stdbool.h>
 #include <windows.h>
 #include <stdint.h>
 
 
-#define in	   static
-#define global static
-#define local  static
+#define internal static
+#define global   static
+#define local    static
 
 
 typedef uint8_t	 uint8;
@@ -34,11 +38,29 @@ tagWin32OffScreenBuffer
 } Win32OffScreenBuffer;
 
 
+typedef struct
+tabButton
+{
+	int x;
+	int y;
+	int Width;
+	int Height;
+	
+	struct
+	{
+		uint8 Red;
+		uint8 Green;
+		uint8 Blue;
+	} Color;
+		
+} Button;
+
+
 global bool Running;
 global Win32OffScreenBuffer GlobalBackBuffer;
 
 
-in WindowSize
+internal WindowSize
 Win32GetWindowSize(HWND Window)
 {
 	WindowSize windowSize = {};
@@ -54,9 +76,61 @@ Win32GetWindowSize(HWND Window)
 }
 
 
-in void
+/*
+internal void
+RenderButton(Win32OffScreenBuffer* Buffer, Button button)
+{
+	uint32* BitmapMemory = (uint32*)Buffer->BitmapMemory;
+	bool rend = false;
+
+	for (int y = 0; y < Buffer->windowSize.Height; y++)
+	{
+		for (int x = 0; x < Buffer->windowSize.Width; x++)
+		{
+			if (button.x == x && button.y == y)
+			{
+				rend = true;
+			}
+			else
+			{
+				*BitmapMemory = 0x00FFFFFF;
+			}
+			if (rend)
+			{
+				if (x >= button.Width && 
+					y >= button.Height && 
+					x <= button.x + button.Width && 
+					y <= button.y + button.Height)
+				{
+					*BitmapMemory = (
+						(((button.Color.Red << 8) | button.Color.Green) << 8) | 
+						button.Color.Blue
+					);
+				}
+			}
+			BitmapMemory++;
+		}
+	}
+}
+*/
+
+internal void
 RenderGradient(Win32OffScreenBuffer Buffer, int XOfSet, int YOfSet)
 {
+	/*
+	Button button;
+	button.Color.Red = 144;
+	button.Color.Green = 61;
+	button.Color.Blue = 61;
+
+	button.x = 50;
+	button.y = 50;
+	button.Height = 100;
+	button.Width = 100;
+
+	RenderButton(&Buffer, button);
+	*/
+	
 	int Pitch = Buffer.windowSize.Width * 4;
 	uint8* Row = (uint8*)Buffer.BitmapMemory;
 
@@ -75,7 +149,7 @@ RenderGradient(Win32OffScreenBuffer Buffer, int XOfSet, int YOfSet)
 }
 
 
-in Win32OffScreenBuffer*
+internal Win32OffScreenBuffer*
 Win32ResizeDIBSection(Win32OffScreenBuffer* Buffer, WindowSize windowSize)
 {
 	if (Buffer->BitmapMemory)
@@ -108,7 +182,7 @@ Win32ResizeDIBSection(Win32OffScreenBuffer* Buffer, WindowSize windowSize)
 }
 
 
-in void 
+internal void
 Win32DisplayBufferInWindow(
 	Win32OffScreenBuffer Buffer,
 	HDC DeviceContext,
@@ -146,7 +220,6 @@ LRESULT MainWindowCallBack(
 	{
 	case WM_SIZE:
 	{
-		
 	} break;
 
 	case WM_DESTROY:
@@ -205,7 +278,7 @@ int __stdcall wWinMain(
 	Win32ResizeDIBSection(&GlobalBackBuffer, windowSize);
 
 	WNDCLASS WindowClass = {};
-
+	
 	WindowClass.style = CS_HREDRAW | CS_VREDRAW;
 	WindowClass.lpfnWndProc = MainWindowCallBack;
 	WindowClass.hInstance = hInstance;
